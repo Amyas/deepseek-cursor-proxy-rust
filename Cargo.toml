@@ -1,0 +1,25 @@
+[package]
+name = "deepseek-cursor-proxy-rust"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0"
+async-stream = "0.3"
+axum = "0.8"
+clap = { version = "4.5", features = ["derive"] }
+dirs = "6.0"
+flate2 = "1.1"
+futures-util = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["charset", "http2", "json", "rustls-tls", "stream"] }
+regex = "1.12"
+rusqlite = { version = "0.37", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+sha2 = "0.10"
+thiserror = "2.0"
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread", "signal"] }
+tower = "0.5"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
