@@ -31,6 +31,8 @@ pub struct AppConfig {
     pub tunnel_enabled: bool,
     pub tunnel_provider: String,
     pub cloudflared_bin: Option<PathBuf>,
+    pub sync_cursor_openai_base_url: bool,
+    pub cursor_state_db_path: PathBuf,
 }
 
 impl Default for AppConfig {
@@ -52,6 +54,8 @@ impl Default for AppConfig {
             tunnel_enabled: false,
             tunnel_provider: DEFAULT_TUNNEL_PROVIDER.to_string(),
             cloudflared_bin: None,
+            sync_cursor_openai_base_url: true,
+            cursor_state_db_path: crate::cursor::state::default_cursor_state_db_path(),
         }
     }
 }

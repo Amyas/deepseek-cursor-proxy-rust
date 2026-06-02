@@ -2,6 +2,7 @@ mod state;
 
 use crate::cli::Cli;
 use crate::config::AppConfig;
+use crate::cursor::state::update_cursor_openai_base_url;
 use crate::error::{AppError, AppResult};
 use crate::http::routes::build_router;
 use crate::tunnel::cloudflared::CloudflaredQuickTunnel;
@@ -29,6 +30,10 @@ impl Application {
         config.tunnel_enabled = cli.tunnel;
         config.tunnel_provider = cli.tunnel_provider;
         config.cloudflared_bin = cli.cloudflared_bin;
+        config.sync_cursor_openai_base_url = !cli.no_sync_cursor_base_url;
+        if let Some(cursor_state_db) = cli.cursor_state_db {
+            config.cursor_state_db_path = cursor_state_db;
+        }
         let clear_only = cli.clear_reasoning_cache;
 
         Ok(Self {
@@ -60,6 +65,29 @@ impl Application {
                         &local_url,
                         self.state.config.cloudflared_bin.as_deref(),
                     )?;
+                    if self.state.config.sync_cursor_openai_base_url {
+                        match update_cursor_openai_base_url(
+                            &self.state.config.cursor_state_db_path,
+                            &tunnel.public_url,
+                        ) {
+                            Ok(update) => {
+                                tracing::info!(
+                                    cursor_state_db = %update.db_path.display(),
+                                    old_url = ?update.old_url,
+                                    new_url = %update.new_url,
+                                    backup_path = %update.backup_path.display(),
+                                    "updated Cursor Override OpenAI Base URL"
+                                );
+                            }
+                            Err(error) => {
+                                tracing::warn!(
+                                    cursor_state_db = %self.state.config.cursor_state_db_path.display(),
+                                    %error,
+                                    "failed to update Cursor Override OpenAI Base URL"
+                                );
+                            }
+                        }
+                    }
                     tracing::info!(
                         public_base_url = %format!("{}/v1", tunnel.public_url),
                         "quick tunnel ready"
@@ -111,6 +139,8 @@ mod tests {
             tunnel: true,
             tunnel_provider: "cloudflared".to_string(),
             cloudflared_bin: None,
+            no_sync_cursor_base_url: false,
+            cursor_state_db: None,
         };
 
         let app = Application::bootstrap(cli).await.unwrap();
@@ -120,5 +150,6 @@ mod tests {
         assert!(app.state().config.collapsible_reasoning);
         assert!(app.state().config.tunnel_enabled);
         assert_eq!(app.state().config.tunnel_provider, "cloudflared");
+        assert!(app.state().config.sync_cursor_openai_base_url);
     }
 }

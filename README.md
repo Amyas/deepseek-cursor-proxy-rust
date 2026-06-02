@@ -1,5 +1,7 @@
 # deepseek-cursor-proxy-rust
 
+[中文](./README.md) | [English](./README.en.md)
+
 一个使用 Rust 重写的本地 OpenAI 兼容代理，面向 DeepSeek 模型与相关客户端兼容场景。
 
 这个项目的目标是：
@@ -47,6 +49,7 @@
 - 基础 trace 文件输出
 - `--clear-reasoning-cache`
 - Cloudflare Quick Tunnel 集成
+- Quick Tunnel 启动后自动同步 Cursor 的 `Override OpenAI Base URL`
 
 当前仍可继续增强：
 
@@ -74,6 +77,8 @@
   请求规范化、响应重写、thinking 展示折叠
 - [src/reasoning](/Users/amyas/github/deepseek-cursor-proxy-rust/src/reasoning)
   reasoning key、缓存、SQLite 存储
+- [src/cursor](/Users/amyas/github/deepseek-cursor-proxy-rust/src/cursor)
+  Cursor 本地状态库读取与 `openAIBaseUrl` 自动同步
 - [src/tunnel](/Users/amyas/github/deepseek-cursor-proxy-rust/src/tunnel)
   Cloudflare Quick Tunnel 集成
 - [src/trace](/Users/amyas/github/deepseek-cursor-proxy-rust/src/trace)
@@ -180,6 +185,33 @@ https://xxxx.trycloudflare.com/v1
 
 把这个地址填入客户端的 Base URL 即可。
 
+如果本机安装了 Cursor，代理还会默认自动把 Cursor 本地状态库中的 `Override OpenAI Base URL` 更新为对应的 Quick Tunnel 地址。这里写入的是不带 `/v1` 的原始公网地址，例如：
+
+```text
+https://xxxx.trycloudflare.com
+```
+
+相关行为：
+
+- 默认开启自动同步
+- 会在写入前备份 `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`
+- 默认写入的 Cursor 状态库路径是 `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`
+- 如果 Cursor 当时正开着，它后续可能把旧内存状态重新写回磁盘
+- 最稳的做法是：先退出 Cursor，再启动代理和 Quick Tunnel
+- 如果你已经开着 Cursor，建议在 tunnel 更新完成后重启 Cursor
+
+如果你不想自动修改 Cursor 状态，可以加：
+
+```bash
+cargo run -- --port 9010 --tunnel --no-sync-cursor-base-url
+```
+
+如果你的 Cursor 状态库不在默认位置，可以显式指定：
+
+```bash
+cargo run -- --port 9010 --tunnel --cursor-state-db "/path/to/state.vscdb"
+```
+
 注意：
 
 - Quick Tunnel 地址通常是临时的
@@ -218,6 +250,8 @@ https://xxxx.trycloudflare.com/v1
 - `tunnel_enabled`
 - `tunnel_provider`
 - `cloudflared_bin`
+- `sync_cursor_openai_base_url`
+- `cursor_state_db_path`
 
 ## 常用命令行参数
 
@@ -230,6 +264,8 @@ https://xxxx.trycloudflare.com/v1
 --tunnel
 --tunnel-provider
 --cloudflared-bin
+--no-sync-cursor-base-url
+--cursor-state-db
 ```
 
 清空本地 reasoning cache：
@@ -269,6 +305,7 @@ cargo test
 - 路由级集成测试
 - trace writer 基础能力
 - Quick Tunnel URL 提取逻辑
+- Cursor `openAIBaseUrl` 自动同步逻辑
 
 ## 发布可执行文件
 

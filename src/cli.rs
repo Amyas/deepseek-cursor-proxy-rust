@@ -41,6 +41,12 @@ pub struct Cli {
 
     #[arg(long)]
     pub cloudflared_bin: Option<PathBuf>,
+
+    #[arg(long = "no-sync-cursor-base-url", default_value_t = false)]
+    pub no_sync_cursor_base_url: bool,
+
+    #[arg(long)]
+    pub cursor_state_db: Option<PathBuf>,
 }
 
 #[cfg(test)]
@@ -66,6 +72,8 @@ mod tests {
             "cloudflared",
             "--cloudflared-bin",
             "/opt/homebrew/bin/cloudflared",
+            "--cursor-state-db",
+            "/tmp/state.vscdb",
         ]);
 
         assert_eq!(cli.host, "0.0.0.0");
@@ -79,5 +87,7 @@ mod tests {
             cli.cloudflared_bin,
             Some(PathBuf::from("/opt/homebrew/bin/cloudflared"))
         );
+        assert_eq!(cli.cursor_state_db, Some(PathBuf::from("/tmp/state.vscdb")));
+        assert!(!cli.no_sync_cursor_base_url);
     }
 }
