@@ -1,6 +1,8 @@
 [package]
 name = "deepseek-cursor-proxy-rust"
 version = "0.1.0"
+description = "A local OpenAI-compatible proxy for DeepSeek models, rebuilt in Rust"
+repository = "https://github.com/Amyas/deepseek-cursor-proxy-rust"
 edition = "2024"
 
 [dependencies]

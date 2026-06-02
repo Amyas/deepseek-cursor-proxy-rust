@@ -1,111 +1,127 @@
 # deepseek-cursor-proxy-rust
 
-A local OpenAI-compatible proxy for DeepSeek models, rebuilt in Rust.
+一个使用 Rust 重写的本地 OpenAI 兼容代理，面向 DeepSeek 模型与相关客户端兼容场景。
 
-This project is designed for tools that can speak the OpenAI Chat Completions API but need compatibility fixes for DeepSeek reasoning and streaming behavior. It focuses on running locally, while still supporting an optional public HTTPS entrypoint through Cloudflare Quick Tunnel for clients like Cursor that cannot call `localhost` directly.
+这个项目的目标是：
 
-## Why this exists
+- 以本地运行方式提供 DeepSeek 兼容代理
+- 修复和归一化部分请求/响应行为
+- 支持 `reasoning_content` 缓存与流式处理
+- 为不能直接访问 `localhost` 的客户端提供可选的 Cloudflare Quick Tunnel 出口
 
-DeepSeek-compatible clients often run into one or more of these problems:
+当前文档默认使用中文。
 
-- missing or inconsistent `reasoning_content` handling
-- tool-call history that needs local repair
-- streaming chunks that need normalization
-- UI clients that need visible "thinking" content folded into normal assistant output
-- local development setups that need a temporary public URL
+## 项目背景
 
-This project provides a Rust implementation of those compatibility layers.
+很多使用 OpenAI Chat Completions 协议的客户端，在接入 DeepSeek 或带推理内容的模型时，会遇到这些问题：
 
-## Current status
+- 请求字段与 DeepSeek 的兼容性不完全一致
+- 工具调用历史与推理内容回传逻辑不一致
+- 流式输出需要额外规范化
+- 客户端界面希望看到可展开的 thinking 内容
+- 一些客户端无法直接访问本地 `localhost`
 
-This repository is already usable for local development and proxy experiments, but it is still an active rewrite. The core local proxy path is implemented and tested. Some advanced recovery and trace parity with the original Python project can still be improved over time.
+这个项目就是围绕这些场景，提供一个本地代理层。
 
-What is implemented today:
+## 当前状态
 
-- local `axum` HTTP server
-- OpenAI-compatible `GET /models`, `GET /healthz`, `POST /v1/chat/completions`
-- request normalization for DeepSeek-compatible chat payloads
-- `functions -> tools` and `function_call -> tool_choice` compatibility
-- `reasoning_effort` normalization
-- stripping mirrored thinking blocks from assistant history
-- non-streaming response rewriting
-- streaming SSE chunk rewriting
-- SQLite-based reasoning cache
-- optional reasoning folding into visible assistant content
-- config file auto-generation
+当前仓库已经可以作为一个可运行、可测试的 Rust 本地代理使用，但它仍然是一个持续演进中的重构版本。
+
+当前已实现：
+
+- 本地 `axum` HTTP 服务
+- `GET /healthz`
+- `GET /models`
+- `GET /v1/models`
+- `POST /chat/completions`
+- `POST /v1/chat/completions`
+- OpenAI 风格请求字段兼容转换
+- `functions -> tools`
+- `function_call -> tool_choice`
+- `reasoning_effort` 归一化
+- assistant 历史中的 thinking block 剥离
+- 非流式响应重写
+- 流式 SSE chunk 改写
+- SQLite reasoning cache
+- reasoning 可见内容折叠展示
+- 基础 trace 文件输出
 - `--clear-reasoning-cache`
-- optional Cloudflare Quick Tunnel integration
+- Cloudflare Quick Tunnel 集成
 
-## Features
+当前仍可继续增强：
 
-- Pure local runtime. No dedicated server required.
-- OpenAI-style API surface for local tools and custom model integrations.
-- SQLite reasoning cache stored on disk.
-- Streaming-aware accumulation of `reasoning_content` and tool calls.
-- Cursor-friendly thinking display via folded assistant content.
-- Optional Quick Tunnel for clients that cannot access `localhost`.
+- 与原 Python 版本更深度的行为完全对齐
+- 更完整的 missing reasoning recovery 分支
+- 更细的 trace 结构
+- 更强的上游错误透传
 
-## Project layout
+## 功能特性
 
-Key modules:
+- 纯本地运行，不需要单独部署服务器
+- 提供 OpenAI 兼容 API 接口
+- 支持非流式和流式 chat completions
+- 支持本地 SQLite reasoning 缓存
+- 支持将 reasoning 内容折叠进 assistant content
+- 支持通过 Cloudflare Quick Tunnel 暴露公网 HTTPS 地址
 
-- [src/http](/Users/amyas/github/deepseek-cursor-proxy-rust/src/http)  
-  Local HTTP routes, handlers, SSE rewriting.
-- [src/protocol](/Users/amyas/github/deepseek-cursor-proxy-rust/src/protocol)  
-  Request normalization, response rewriting, reasoning folding.
-- [src/reasoning](/Users/amyas/github/deepseek-cursor-proxy-rust/src/reasoning)  
-  Cache keys, SQLite store, reasoning lookup primitives.
-- [src/tunnel](/Users/amyas/github/deepseek-cursor-proxy-rust/src/tunnel)  
-  Cloudflare Quick Tunnel integration.
-- [src/trace](/Users/amyas/github/deepseek-cursor-proxy-rust/src/trace)  
-  Basic trace file writing.
+## 目录结构
 
-## Requirements
+核心模块：
+
+- [src/http](/Users/amyas/github/deepseek-cursor-proxy-rust/src/http)
+  本地 HTTP 路由、handler、SSE 改写
+- [src/protocol](/Users/amyas/github/deepseek-cursor-proxy-rust/src/protocol)
+  请求规范化、响应重写、thinking 展示折叠
+- [src/reasoning](/Users/amyas/github/deepseek-cursor-proxy-rust/src/reasoning)
+  reasoning key、缓存、SQLite 存储
+- [src/tunnel](/Users/amyas/github/deepseek-cursor-proxy-rust/src/tunnel)
+  Cloudflare Quick Tunnel 集成
+- [src/trace](/Users/amyas/github/deepseek-cursor-proxy-rust/src/trace)
+  基础 trace 写入
+
+## 环境要求
 
 - Rust toolchain
 - Cargo
-- Network access to DeepSeek
-- Optional: `cloudflared` if you want a public Quick Tunnel URL
+- 可访问 DeepSeek 上游网络
+- 如果要启用 Quick Tunnel，需要安装 `cloudflared`
 
-## Installation
-
-Clone the repo and run directly with Cargo:
+## 安装
 
 ```bash
-git clone <your-repo-url> deepseek-cursor-proxy-rust
+git clone git@github.com:Amyas/deepseek-cursor-proxy-rust.git
 cd deepseek-cursor-proxy-rust
-cargo run -- --port 9010
 ```
 
-## Quick start
+## 快速开始
 
-Start the local proxy:
+### 本地启动
 
 ```bash
 cargo run -- --port 9010
 ```
 
-Health check:
+本地健康检查：
 
 ```bash
 curl --noproxy '*' http://127.0.0.1:9010/healthz
 ```
 
-Expected response:
+期望返回：
 
 ```json
 {"ok":true}
 ```
 
-List models:
+### 查看模型列表
 
 ```bash
 curl --noproxy '*' http://127.0.0.1:9010/v1/models
 ```
 
-## Usage
+## 使用方式
 
-### Non-streaming request
+### 非流式请求
 
 ```bash
 curl --noproxy '*' http://127.0.0.1:9010/v1/chat/completions \
@@ -116,13 +132,13 @@ curl --noproxy '*' http://127.0.0.1:9010/v1/chat/completions \
     "messages": [
       {
         "role": "user",
-        "content": "Introduce yourself briefly."
+        "content": "你好，请简单介绍一下你自己。"
       }
     ]
   }'
 ```
 
-### Streaming request
+### 流式请求
 
 ```bash
 curl --noproxy '*' -N http://127.0.0.1:9010/v1/chat/completions \
@@ -134,57 +150,57 @@ curl --noproxy '*' -N http://127.0.0.1:9010/v1/chat/completions \
     "messages": [
       {
         "role": "user",
-        "content": "Think step by step and answer: what is 1 + 1?"
+        "content": "请一步一步思考后回答：1 + 1 等于几？"
       }
     ]
   }'
 ```
 
-## Cloudflare Quick Tunnel
+## Cursor / 无法访问 localhost 的客户端
 
-Some clients, especially Cursor custom model integrations, cannot reliably call `localhost` or `127.0.0.1` directly. For those cases, this project can launch a Cloudflare Quick Tunnel and print a temporary public Base URL.
+一些客户端不能直接访问 `127.0.0.1` 或 `localhost`。这时可以启用 Cloudflare Quick Tunnel，让本地代理临时暴露为公网 HTTPS 地址。
 
-Start with tunnel enabled:
+### 启动 Quick Tunnel
 
 ```bash
 cargo run -- --port 9010 --tunnel --verbose
 ```
 
-If `cloudflared` is not in your `PATH`, specify it explicitly:
+如果 `cloudflared` 不在 `PATH` 中：
 
 ```bash
 cargo run -- --port 9010 --tunnel --cloudflared-bin /opt/homebrew/bin/cloudflared --verbose
 ```
 
-When successful, the proxy prints a public URL like:
+启动成功后，程序会打印：
 
 ```text
-https://example-name.trycloudflare.com/v1
+https://xxxx.trycloudflare.com/v1
 ```
 
-Use that as your client Base URL.
+把这个地址填入客户端的 Base URL 即可。
 
-Notes:
+注意：
 
-- Quick Tunnel URLs are temporary.
-- Restarting the proxy usually creates a new public URL.
-- Keep the proxy process running while your client is using the tunnel.
+- Quick Tunnel 地址通常是临时的
+- 每次重启代理后地址可能变化
+- 使用期间需要保持代理进程持续运行
 
-## Configuration
+## 配置文件
 
-The proxy auto-creates a config file on first run:
+程序首次启动时会自动生成配置文件：
 
 ```text
 ~/.deepseek-cursor-proxy-rust/config.yaml
 ```
 
-Default reasoning cache path:
+默认 reasoning cache 文件：
 
 ```text
 ~/.deepseek-cursor-proxy-rust/reasoning_content.sqlite3
 ```
 
-Current config fields include:
+当前主要配置项包括：
 
 - `host`
 - `port`
@@ -203,9 +219,7 @@ Current config fields include:
 - `tunnel_provider`
 - `cloudflared_bin`
 
-## Command-line options
-
-Common options:
+## 常用命令行参数
 
 ```bash
 --host
@@ -218,90 +232,112 @@ Common options:
 --cloudflared-bin
 ```
 
-Clear local reasoning cache:
+清空本地 reasoning cache：
 
 ```bash
 cargo run -- --clear-reasoning-cache
 ```
 
-## Debugging
+## 调试
 
-Verbose mode:
+### verbose 日志
 
 ```bash
 cargo run -- --port 9010 --verbose
 ```
 
-Verbose mode with basic request trace files:
+### trace 文件
 
 ```bash
 cargo run -- --port 9010 --verbose --trace-dir /tmp/dcp-traces
 ```
 
-## Testing
+## 测试
 
-Run all tests:
+运行全部测试：
 
 ```bash
 cargo test
 ```
 
-The current test suite covers:
+当前测试覆盖包括：
 
-- protocol normalization
-- response rewriting
-- SSE rewriting
-- reasoning cache behavior
-- route-level integration tests
-- trace writer basics
-- tunnel URL extraction
+- 协议字段规范化
+- 非流式响应重写
+- SSE 改写
+- reasoning cache 行为
+- 路由级集成测试
+- trace writer 基础能力
+- Quick Tunnel URL 提取逻辑
 
-## Limitations
+## 发布可执行文件
 
-- This rewrite is not yet a byte-for-byte parity clone of the original Python implementation.
-- Quick Tunnel integration depends on `cloudflared`.
-- Quick Tunnel URLs are not stable across restarts.
-- Some advanced recovery paths and richer trace details can still be expanded.
+当前仓库已经包含 GitHub Actions 的 release 工作流：
 
-## Recommended usage modes
+- 文件位置：[.github/workflows/release.yml](/Users/amyas/github/deepseek-cursor-proxy-rust/.github/workflows/release.yml:1)
+- 触发方式：推送以 `v` 开头的 tag，例如 `v0.1.0`
+- 产物平台：
+  - Linux `x86_64-unknown-linux-gnu`
+  - macOS `aarch64-apple-darwin`
+  - Windows `x86_64-pc-windows-msvc`
 
-### Pure local development
+发布步骤：
 
-Use:
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+推送后，GitHub Actions 会自动：
+
+- 运行测试
+- 构建 release 二进制
+- 打包归档文件
+- 创建 GitHub Release
+- 把可执行文件作为 Release Assets 上传
+
+用户后续就可以直接在 GitHub Releases 页面下载对应平台的可执行文件。
+
+## 推荐使用模式
+
+### 纯本地开发
 
 ```bash
 cargo run -- --port 9010
 ```
 
-and call:
+然后访问：
 
 ```text
 http://127.0.0.1:9010/v1
 ```
 
-### Cursor or other clients that cannot reach localhost
-
-Use:
+### 给 Cursor 等客户端使用
 
 ```bash
 cargo run -- --port 9010 --tunnel --verbose
 ```
 
-and copy the printed:
+然后使用输出的：
 
 ```text
 https://xxxx.trycloudflare.com/v1
 ```
 
-## Roadmap
+## 已知限制
 
-Areas that can still be improved:
+- 当前版本还不是原 Python 项目的逐字节完全等价实现
+- Quick Tunnel 依赖 `cloudflared`
+- Quick Tunnel 地址不是固定地址
+- 部分高级恢复分支仍可继续增强
 
-- deeper parity with the original Python recovery behavior
-- richer structured request/response tracing
-- more complete upstream error passthrough
-- stronger end-to-end tunnel lifecycle observability
+## 后续方向
 
-## License
+- 更强的 Python 行为对齐
+- 更完整的 recovery 逻辑
+- 更细的 trace 和调试输出
+- 更丰富的客户端接入说明
 
-Add your preferred license here before public release.
+## 许可证
+
+发布前请补充正式许可证文件，例如 `MIT`、`Apache-2.0` 或其他你希望公开使用的许可证。
